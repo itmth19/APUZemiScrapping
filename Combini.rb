@@ -45,7 +45,7 @@ def getCombiniInfo(url)
   result = []
   address = ''
   phone = ''
-  note = ''
+  note = []
   name = ''
   name_katana = ''
 
@@ -66,8 +66,8 @@ def getCombiniInfo(url)
         address = li.css('dd').text
       when '電話番号'
         phone = li.css('dd').text
-      when '備考'
-        note = li.css('dd').text
+      else
+        note << li.css('dt').text + ':' + li.css('dd').text
       end
   end
   result << name
