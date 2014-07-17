@@ -6,13 +6,13 @@ require 'csv'
 
 def saveInfoIntoFile(type,result)
   case type
-    when 'shoplist'
+    when 'gaslist'
       CSV.open(type + '.csv','w') do |csv|
         result.each_slice(1) do |link|
           csv << link
         end
       end
-    when 'shopinfo'
+    when 'gasinfo'
       CSV.open(type + '.csv','a') do |csv|
         csv << result
       end
@@ -20,13 +20,13 @@ def saveInfoIntoFile(type,result)
   end
 
 def getTotal
-  csv_text = File.read('shoplist.csv')
+  csv_text = File.read('gaslist.csv')
   csv = CSV.parse(csv_text,:headers => false)
   return csv.count
 end
 
 def readCombiniListAndGetInfo(from_index, to_index)
-  csv_text = File.read('shoplist.csv')
+  csv_text = File.read('gaslist.csv')
   csv_tmp = CSV.parse(csv_text,:headers => false)
   csv = csv_tmp[from_index..to_index]
   p csv.count
@@ -35,7 +35,7 @@ def readCombiniListAndGetInfo(from_index, to_index)
   csv.each do |row|
       p 'Processing link ' + row[0]
       result = getCombiniInfo(row[0])
-      saveInfoIntoFile('shopinfo',result)
+      saveInfoIntoFile('gasinfo',result)
   end
 
 end
@@ -70,6 +70,13 @@ def getCombiniInfo(url)
         note << li.css('dt').text + ':' + li.css('dd').text
       end
   end
+  postal_div =  doc.css('div[class="basic_info left"]').css('p[class="indent"]').children()[2]
+  if postal_div != nil
+    postal =  doc.css('div[class="basic_info left"]').css('p[class="indent"]').children()[2].text
+  else
+    postal = ''
+  end
+  address =postal + address
   result << name
   result << name_katana
   result << address
@@ -86,7 +93,7 @@ def getCombiniList(url,total_page)
     tmp_result = getCombiniListInPage(current_page_url)
     result.concat(tmp_result)
   end
-  saveInfoIntoFile('shoplist',result)
+  saveInfoIntoFile('gaslist',result)
 end
 
 def getCombiniListInPage(url)
@@ -116,12 +123,13 @@ def main
   when 'getInfo'
     readCombiniListAndGetInfo(0,getTotal-1)
   when 'getList'
-    url = 'http://www.navitime.co.jp/classified/A44_L0201001?cnt=529&p='
-    total_page = 27
+    url = 'http://www.navitime.co.jp/classified/A44_L0801001?cnt=665&p='
+    total_page = 25
     getCombiniList(url,total_page)
 
   end
 end
 
 main
+
 
