@@ -22,14 +22,15 @@ end
 
 def searchInArea(arrInput, origin_postal_code)
   result = []
-  (-1..1).each do |i|
+  (-2..2).each do |i|
     postal_code = origin_postal_code + i
     keyArea = getAreaName(postal_code.to_s)
     if keyArea != []
       arrInput.each do |combini|
         tmpAddress = combini[2]
-        if /#{keyArea['level3']}/.match(tmpAddress)
+        if /#{keyArea['level3']}/.match(tmpAddress) &&  /#{keyArea['level2']}/.match(tmpAddress) 
           result << combini
+          p combini[2]
         end
       end
     end
@@ -211,7 +212,7 @@ def main(info)
     end
     puts '===================================================='
   end
-  #getDataGrid(info,'duration')
+  getDataGrid(info,'duration')
 end
 
 def printResult(result)
@@ -223,7 +224,7 @@ def printResult(result)
   #puts 'Total time (approximately) : ' + result['duration'].to_s
   puts 'Routes planning:'
   puts 'From ' + result['ori']
-  result['points_name'].each do |point,i|
+  result['points'].each do |point,i|
     puts 'Through ' + i.to_s + '.' + point
   end
   puts 'To ' + result['dest']
@@ -394,9 +395,9 @@ def abstractTesting()
     main(info)
   end
 end
-abstractTesting()
-#info = askInfo()
-#main(info)
+#abstractTesting()
+info = askInfo()
+main(info)
 #test
 #test2
 #info =  askInfo()

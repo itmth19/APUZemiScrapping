@@ -3,11 +3,13 @@ require 'rubygems'
 require 'nokogiri'
 require 'open-uri'
 require 'csv'
+require 'parallel'
+require 'ruby-progressbar'
 
 def saveInfoIntoFile(type,result)
   case type
     when 'shoplist'
-      CSV.open(type + '.csv','w') do |csv|
+      CSV.open(type + '.csv','a') do |csv|
         result.each_slice(1) do |link|
           csv << link
         end
@@ -17,7 +19,7 @@ def saveInfoIntoFile(type,result)
         csv << result
       end
     end
-  end
+end
 
 def getTotal
   csv_text = File.read('shoplist.csv')
@@ -26,18 +28,19 @@ def getTotal
 end
 
 def readCombiniListAndGetInfo(from_index, to_index)
+  status = 0
   csv_text = File.read('shoplist.csv')
   csv_tmp = CSV.parse(csv_text,:headers => false)
   csv = csv_tmp[from_index..to_index]
-  p csv.count
-  p from_index
-  p to_index
-  csv.each do |row|
-      p 'Processing link ' + row[0]
+  #Parallel.map([1,2001,4001,6001,8001],:in_threads=>5,:progress=>"Overal") do |item|
+    Parallel.map_with_index(csv,:in_threads=>20,:progress=>"Percentage Done:") do |row,i|
+      #p 'Processing link ' + row[0]
       result = getCombiniInfo(row[0])
       saveInfoIntoFile('shopinfo',result)
-  end
-
+      status = i
+    end
+  #end
+   p status
 end
 
 def getCombiniInfo(url)
@@ -50,9 +53,15 @@ def getCombiniInfo(url)
   name_katana = ''
 
   #code
-  html = open(url) do |f|
-    f.read
+  begin
+    html = open(url) do |f|
+      f.read
+    end
+  rescue OpenURI::HTTPError => e
+    p e
+    p url
   end
+
   doc = Nokogiri::HTML.parse(html)
   name_div = doc.css('div[class="spot_info_pane"]').css('div[class="name"]')
   name_katana =  name_div.css('rt').text
@@ -75,18 +84,51 @@ def getCombiniInfo(url)
   result << address
   result << phone
   result << note
-  p result
+  #p result
   return result
 end
 
-def getCombiniList(url,total_page)
-  result = []
-  (0..total_page).each do |i|
-    current_page_url = url + i.to_s
-    tmp_result = getCombiniListInPage(current_page_url)
-    result.concat(tmp_result)
+def getCombiniList(url)
+  #get all the prefectures link
+  html = open(url).read
+  doc = Nokogiri::HTML.parse(html)
+  a_prefs = doc.css('div[class="fieldset"]').css('a')
+  a_prefs = a_prefs[0..46]
+  Parallel.map(a_prefs,:in_threads=>20,:progress=>"Do stuff=") do |link|
+    result = []
+    #first get the current website
+    #get all the list in the current site until don't have link in the last ul[class="col pages"] >> li
+    #puts link
+    next_link = link.attributes['href'].value
+    while next_link != '' do
+      html = open(next_link).read
+      while html.include? "Access too much!" do
+        #p 'Access too much'
+        html = open(next_link) do |f|
+          f.read
+        end
+      end
+      #p 'Processing Page ' + url
+      doc = Nokogiri::HTML.parse(html)
+      tmp_result = getCombiniListInPage(next_link)
+      result.concat(tmp_result)
+      #find the next page link
+      a_href = doc.css('ul[class="col pages"] li').children().last()
+      if(a_href != nil && a_href.attributes['href'] != nil)
+        next_link = a_href.attributes['href'].value
+      else
+        p 'TTTTTTTTTTTTTTTTTTTTTTTTTTTTT======'
+        p next_link
+        p doc.css('ul[class="col pages"] li').children()
+        p 'TTTTTTTTTTTTTTTTTTTTTTTTTTTTT======'
+
+        next_link = '';
+      end
+      #p next_link
+    end
+    #p result.count.to_s
+    saveInfoIntoFile('shoplist',result)
   end
-  saveInfoIntoFile('shoplist',result)
 end
 
 def getCombiniListInPage(url)
@@ -94,7 +136,7 @@ def getCombiniListInPage(url)
   html = open(url) do |f|
     f.read
   end
-  p 'Processing Page ' + url
+  #p 'Processing Page ' + url
 
   doc = Nokogiri::HTML.parse(html)
   html_divs = doc.css('div[class="NormalPoiName"]')
@@ -117,11 +159,32 @@ def main
     readCombiniListAndGetInfo(0,getTotal-1)
   when 'getList'
     url = 'http://www.navitime.co.jp/classified/A44_L0201001?cnt=529&p='
-    total_page = 27
-    getCombiniList(url,total_page)
+    url2 = 'http://www.navitime.co.jp/classified/A44202_L0201001?cnt=61&atr='
+    getCombiniList(url2)
 
   end
 end
 
-main
+def optimizeShopList()
+  @result = []
+  csv_text = File.read('shoplist.csv')
+  csv_tmp = CSV.parse(csv_text,:headers => false)
+  Parallel.each(csv_tmp,:in_processes=>0, :progress=>"Progress") do |link|
+    temp = []
+    if not link[0].include?("address")
+      temp << link[0]
+      temp << TRUE
+      @result << temp
+    end
+  end
+  p @result
+  CSV.open('optimizedShoplist.csv','a') do |csv|
+    @result.each_slice(1) do |link|
+      csv << link
+    end
+  end
+end
 
+#main
+#getCombiniList('http://www.navitime.co.jp/address/_L0801001')
+#optimizeShopList()
